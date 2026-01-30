@@ -8,7 +8,7 @@ from typing import Dict, List, Set
 from openai import OpenAI
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
 
 TIPS: List[str] = [
@@ -65,13 +65,11 @@ class EducationBot:
         self.last_sent: Dict[int, float] = {}
         self.openai_client = OpenAI(api_key=config.openai_api_key)
         self.system_prompt = (
-            "Ты опытный психолог-консультант по отношениям, "
-            "который прочитал более 100 000 книг по отношениям, "
-            "семейной терапии и эмоциональному интеллекту. "
-            "Отвечай на русском языке, тепло и эмпатично, "
-            "давай практичные и бережные рекомендации. "
-            "Не используй медицинские диагнозы и не заменяй профессиональную помощь. "
-            "Если информации мало, задавай один уточняющий вопрос."
+            "Ты опытный психолог-консультант по отношениям и чуткий слушатель. "
+            "Отвечай на русском языке, тепло и эмпатично, отражай чувства собеседницы, "
+            "задавай один мягкий уточняющий вопрос, если информации мало. "
+            "Давай практичные и бережные рекомендации без давления. "
+            "Не используй медицинские диагнозы и не заменяй профессиональную помощь."
         )
 
     def _can_reply(self, user_id: int) -> bool:
@@ -83,21 +81,6 @@ class EducationBot:
     def _mark_sent(self, user_id: int) -> None:
         self.last_sent[user_id] = time.time()
 
-    async def send_tip(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        user = update.effective_user
-        if user is None:
-            return
-        if user.id not in self.config.women_user_ids:
-            await update.effective_message.reply_text(
-                "Эта команда предназначена для участниц группы.",
-            )
-            return
-        tip = await self._generate_reply(
-            "Дай короткую психологическую подсказку по отношениям (1-2 предложения).",
-        )
-        self._mark_sent(user.id)
-        await update.effective_message.reply_text(tip, parse_mode=ParseMode.HTML)
-
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         message = update.effective_message
         user = update.effective_user
@@ -107,7 +90,10 @@ class EducationBot:
             return
         if not self._can_reply(user.id):
             return
-        prompt = message.text or "Поддержи участницу и дай мягкий совет."
+        prompt = (
+            message.text
+            or "Поддержи участницу, будь чутким слушателем и дай мягкий совет."
+        )
         reply = await self._generate_reply(prompt)
         self._mark_sent(user.id)
         await message.reply_text(reply, parse_mode=ParseMode.HTML)
@@ -139,7 +125,6 @@ class EducationBot:
 def build_application(config: BotConfig) -> Application:
     bot = EducationBot(config)
     application = Application.builder().token(config.token).build()
-    application.add_handler(CommandHandler("tip", bot.send_tip))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message))
     return application
 
