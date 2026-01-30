@@ -26,6 +26,16 @@ export MIN_REPLY_SECONDS="3600"  # необязательно
 python bot.py
 ```
 
+## Деплой на Railway
+
+1. Создайте новый проект в Railway и подключите репозиторий.
+2. В разделе Variables добавьте переменные:
+   - `BOT_TOKEN`
+   - `WOMEN_USER_IDS`
+   - `MIN_REPLY_SECONDS` (опционально)
+3. Railway автоматически использует `Procfile` и запустит процесс `worker`.
+4. После деплоя убедитесь, что бот онлайн, отправив `/tip` в чате.
+
 ## Настройки
 
 - `BOT_TOKEN` — токен Telegram-бота.
