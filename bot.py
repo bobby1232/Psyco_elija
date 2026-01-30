@@ -1,9 +1,11 @@
+import asyncio
 import os
 import random
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Set
 
+from openai import OpenAI
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -24,6 +26,8 @@ TIPS: List[str] = [
 @dataclass
 class BotConfig:
     token: str
+    openai_api_key: str
+    openai_model: str
     women_user_ids: Set[int]
     min_reply_seconds: int
 
@@ -38,10 +42,18 @@ def load_config() -> BotConfig:
     token = os.environ.get("BOT_TOKEN", "").strip()
     if not token:
         raise RuntimeError("BOT_TOKEN is required")
+    openai_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not openai_api_key:
+        openai_api_key = os.environ.get("CHAT_GPT_TOKEN", "").strip()
+    if not openai_api_key:
+        raise RuntimeError("OPENAI_API_KEY or CHAT_GPT_TOKEN is required")
+    openai_model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini").strip()
     women_user_ids = parse_user_ids(os.environ.get("WOMEN_USER_IDS", ""))
     min_reply_seconds = int(os.environ.get("MIN_REPLY_SECONDS", "3600"))
     return BotConfig(
         token=token,
+        openai_api_key=openai_api_key,
+        openai_model=openai_model,
         women_user_ids=women_user_ids,
         min_reply_seconds=min_reply_seconds,
     )
@@ -51,6 +63,16 @@ class EducationBot:
     def __init__(self, config: BotConfig) -> None:
         self.config = config
         self.last_sent: Dict[int, float] = {}
+        self.openai_client = OpenAI(api_key=config.openai_api_key)
+        self.system_prompt = (
+            "Ты опытный психолог-консультант по отношениям, "
+            "который прочитал более 100 000 книг по отношениям, "
+            "семейной терапии и эмоциональному интеллекту. "
+            "Отвечай на русском языке, тепло и эмпатично, "
+            "давай практичные и бережные рекомендации. "
+            "Не используй медицинские диагнозы и не заменяй профессиональную помощь. "
+            "Если информации мало, задавай один уточняющий вопрос."
+        )
 
     def _can_reply(self, user_id: int) -> bool:
         last = self.last_sent.get(user_id)
@@ -70,7 +92,9 @@ class EducationBot:
                 "Эта команда предназначена для участниц группы.",
             )
             return
-        tip = random.choice(TIPS)
+        tip = await self._generate_reply(
+            "Дай короткую психологическую подсказку по отношениям (1-2 предложения).",
+        )
         self._mark_sent(user.id)
         await update.effective_message.reply_text(tip, parse_mode=ParseMode.HTML)
 
@@ -83,9 +107,33 @@ class EducationBot:
             return
         if not self._can_reply(user.id):
             return
-        tip = random.choice(TIPS)
+        prompt = message.text or "Поддержи участницу и дай мягкий совет."
+        reply = await self._generate_reply(prompt)
         self._mark_sent(user.id)
-        await message.reply_text(tip, parse_mode=ParseMode.HTML)
+        await message.reply_text(reply, parse_mode=ParseMode.HTML)
+
+    async def _generate_reply(self, prompt: str) -> str:
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": prompt},
+        ]
+
+        def _request() -> str:
+            response = self.openai_client.chat.completions.create(
+                model=self.config.openai_model,
+                messages=messages,
+                max_tokens=180,
+                temperature=0.7,
+            )
+            return response.choices[0].message.content.strip()
+
+        try:
+            result = await asyncio.to_thread(_request)
+            if result:
+                return result
+        except Exception:
+            pass
+        return random.choice(TIPS)
 
 
 def build_application(config: BotConfig) -> Application:

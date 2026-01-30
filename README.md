@@ -20,6 +20,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 export BOT_TOKEN="ваш_токен"
+export OPENAI_API_KEY="ваш_chatgpt_токен"
+export OPENAI_MODEL="gpt-4o-mini"  # опционально
 export WOMEN_USER_IDS="123456,234567"
 export MIN_REPLY_SECONDS="3600"  # необязательно
 
@@ -32,6 +34,8 @@ python bot.py
 2. Убедитесь, что Railway использует Python из `runtime.txt` (рекомендуется 3.11).
 3. В разделе Variables добавьте переменные:
    - `BOT_TOKEN`
+   - `OPENAI_API_KEY` (или `CHAT_GPT_TOKEN`)
+   - `OPENAI_MODEL` (опционально)
    - `WOMEN_USER_IDS`
    - `MIN_REPLY_SECONDS` (опционально)
 4. Railway автоматически использует `Procfile` и запустит процесс `worker`.
@@ -40,6 +44,8 @@ python bot.py
 ## Настройки
 
 - `BOT_TOKEN` — токен Telegram-бота.
+- `OPENAI_API_KEY` — токен ChatGPT/OpenAI (можно использовать `CHAT_GPT_TOKEN`).
+- `OPENAI_MODEL` — модель для генерации ответов (по умолчанию `gpt-4o-mini`).
 - `WOMEN_USER_IDS` — список ID участниц через запятую (например: `123,456`).
 - `MIN_REPLY_SECONDS` — минимальная пауза между ответами одному человеку (по умолчанию 3600 сек).
 
