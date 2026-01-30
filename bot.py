@@ -88,7 +88,7 @@ class EducationBot:
         user = update.effective_user
         if message is None or user is None:
             return
-        if user.id not in self.config.women_user_ids:
+        if self.config.women_user_ids and user.id not in self.config.women_user_ids:
             logging.debug("Skip message from user %s: not in WOMEN_USER_IDS", user.id)
             return
         if message.text:
